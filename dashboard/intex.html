@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Location Tracker Admin Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+    .alert {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+  <div id="alert" class="alert" style="display: none;"></div>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const socket = io("http://localhost:3000"); // Change to production URL if hosted
+
+    const map = L.map('map').setView([28.6139, 77.2090], 14);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(map);
+
+    // Geofence circle (New Delhi)
+    const geofenceCircle = L.circle([28.6139, 77.2090], {
+      color: "blue",
+      fillColor: "#aad",
+      fillOpacity: 0.2,
+      radius: 500
+    }).addTo(map);
+
+    const markers = {};
+
+    const customIcon = L.icon({
+      iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -30]
+    });
+
+    function showAlert(message) {
+      const alertDiv = document.getElementById("alert");
+      alertDiv.textContent = message;
+      alertDiv.style.display = "block";
+
+      setTimeout(() => {
+        alertDiv.style.display = "none";
+      }, 5000);
+    }
+
+    socket.on("locationUpdate", ({ deviceId, latitude, longitude }) => {
+      const pos = [latitude, longitude];
+
+      if (!markers[deviceId]) {
+        markers[deviceId] = L.marker(pos, { icon: customIcon })
+          .addTo(map)
+          .bindPopup(`📍 Device ID: ${deviceId}`);
+      }
+
+      markers[deviceId].setLatLng(pos);
+      markers[deviceId].getPopup().setContent(
+        `📍 Device ID: ${deviceId}<br>Lat: ${latitude.toFixed(5)}<br>Lng: ${longitude.toFixed(5)}`
+      );
+    });
+
+    socket.on("geofenceAlert", ({ deviceId, alert }) => {
+      showAlert(`🚨 ${alert}`);
+    });
+  </script>
+</body>
+</html>
